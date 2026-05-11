@@ -1,14 +1,14 @@
-package com.michaelhope;
+package com.michaelhope.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-
 import java.util.Objects;
 
 @Entity
 public class SoftwareEngineer {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -23,29 +23,12 @@ public class SoftwareEngineer {
         this.techStack = techStack;
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getTechStack() {
-        return techStack;
-    }
-
-    public void setTechStack(String techStack) {
-        this.techStack = techStack;
-    }
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getTechStack() { return techStack; }
+    public void setTechStack(String techStack) { this.techStack = techStack; }
 
     @Override
     public boolean equals(Object o) {
@@ -55,7 +38,5 @@ public class SoftwareEngineer {
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(id, name, techStack);
-    }
+    public int hashCode() { return Objects.hash(id, name, techStack); }
 }
