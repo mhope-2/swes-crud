@@ -6,18 +6,16 @@ import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.mapper.SoftwareEngineerMapper;
 import com.michaelhope.model.SoftwareEngineer;
 import com.michaelhope.repository.SoftwareEngineerRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class SoftwareEngineerService {
 
     private final SoftwareEngineerRepository repository;
-
-    public SoftwareEngineerService(SoftwareEngineerRepository repository) {
-        this.repository = repository;
-    }
 
     public List<SoftwareEngineerResponse> getAllSoftwareEngineers() {
         return repository.findAll().stream()

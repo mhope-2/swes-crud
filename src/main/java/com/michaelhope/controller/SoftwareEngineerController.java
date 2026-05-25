@@ -4,6 +4,7 @@ import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.service.SoftwareEngineerService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,13 +13,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("api/v1/software-engineer")
+@RequiredArgsConstructor
 public class SoftwareEngineerController {
 
     private final SoftwareEngineerService service;
-
-    public SoftwareEngineerController(SoftwareEngineerService service) {
-        this.service = service;
-    }
 
     @GetMapping
     public ResponseEntity<List<SoftwareEngineerResponse>> getEngineers() {
