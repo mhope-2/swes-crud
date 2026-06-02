@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.michaelhope</groupId>
-    <artifactId>spring-boot</artifactId>
+    <artifactId>swes_crud</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>spring-boot</name>
-    <description>spring-boot</description>
+    <name>swes_crud</name>
+    <description>swes_crud</description>
     <url/>
     <licenses>
         <license/>

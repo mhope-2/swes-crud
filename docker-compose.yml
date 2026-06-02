@@ -1,6 +1,6 @@
 services:
   app:
-    container_name: spring-boot-app
+    container_name: swes-crud-app
     build: .
     ports:
       - "8080:8080"
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   db:
-    container_name: postgres-spring-boot
+    container_name: postgres-swes_crud
     image: postgres:latest
     environment:
       POSTGRES_USER: postgres
