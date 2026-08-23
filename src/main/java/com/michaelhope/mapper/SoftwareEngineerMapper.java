@@ -3,12 +3,13 @@ package com.michaelhope.mapper;
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.model.SoftwareEngineer;
+import lombok.NoArgsConstructor;
 
+
+@NoArgsConstructor
 public class SoftwareEngineerMapper {
 
-    private SoftwareEngineerMapper() {}
-
-    public static SoftwareEngineerResponse toResponse(SoftwareEngineer entity) {
+    public static SoftwareEngineerResponse toResponse (SoftwareEngineer entity) {
         return new SoftwareEngineerResponse(entity.getId(), entity.getName(), entity.getTechStack());
     }
 

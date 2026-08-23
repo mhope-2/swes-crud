@@ -1,8 +1,10 @@
 package com.michaelhope.controller;
 
+import com.michaelhope.dto.EngineerAuditResponse;
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.service.SoftwareEngineerService;
+import com.michaelhope.service.EngineerAuditService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +19,7 @@ import java.util.List;
 public class SoftwareEngineerController {
 
     private final SoftwareEngineerService service;
+    private final EngineerAuditService auditService;
 
     @GetMapping
     public ResponseEntity<List<SoftwareEngineerResponse>> getEngineers() {
@@ -26,6 +29,11 @@ public class SoftwareEngineerController {
     @GetMapping("{id}")
     public ResponseEntity<SoftwareEngineerResponse> getEngineerById(@PathVariable Integer id) {
         return ResponseEntity.ok(service.getSoftwareEngineerById(id));
+    }
+
+    @GetMapping("{id}/history")
+    public ResponseEntity<List<EngineerAuditResponse>> getEngineerHistory(@PathVariable Integer id) {
+        return ResponseEntity.ok(auditService.getHistory(id));
     }
 
     @PostMapping

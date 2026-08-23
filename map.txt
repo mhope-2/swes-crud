@@ -1,0 +1,66 @@
+SPRING BOOT REST API — MENTAL MAP
+==================================
+
+BUILD ORDER
+-----------
+1. Model        @Entity class — maps to a DB table. Fields become columns.
+                Annotate with @Getter @Setter @NoArgsConstructor @AllArgsConstructor (Lombok).
+
+2. Repository   interface extending JpaRepository<Entity, IdType>
+                Free CRUD methods: findAll, findById, save, deleteById, existsById, etc.
+
+3. DTOs         Records for inbound (Request) and outbound (Response) shapes.
+                Use @NotBlank / @NotNull on Request fields for validation.
+
+4. Mapper       Static utility class — converts Entity <-> DTOs.
+                toEntity(Request) and toResponse(Entity).
+
+5. Service      @Service class — business logic lives here.
+                Inject repo via @RequiredArgsConstructor. Throw ResourceNotFoundException when entity missing.
+
+6. Controller   @RestController — maps HTTP verbs to service calls.
+                Inject service via @RequiredArgsConstructor. Use @Valid on @RequestBody.
+                Return ResponseEntity with appropriate status (200, 201, 204, 404).
+
+7. Exceptions   ResourceNotFoundException extends RuntimeException.
+                @RestControllerAdvice + @ExceptionHandler maps it to HTTP 404.
+
+
+REQUEST LIFECYCLE
+-----------------
+HTTP Request
+  → Controller  (@GetMapping / @PostMapping / etc.)
+  → Service     (business logic, repo calls)
+  → Repository  (DB query)
+  → Mapper      (Entity → Response DTO)
+  → HTTP Response
+
+
+KEY CONFIG (application.properties)
+------------------------------------
+spring.datasource.url          DB connection string
+spring.jpa.hibernate.ddl-auto  create-drop (dev) | validate/none (prod)
+spring.jpa.show-sql            true to log generated SQL
+
+
+DEPENDENCIES (pom.xml)
+----------------------
+spring-boot-starter-web        REST controllers, embedded Tomcat
+spring-boot-starter-data-jpa   JPA / Hibernate ORM
+spring-boot-starter-validation @Valid / @NotBlank / @NotNull on DTOs
+postgresql                     Postgres JDBC driver (scope: runtime)
+lombok                         Boilerplate reduction (@Getter, @RequiredArgsConstructor, etc.)
+
+-- optional but common --
+spring-boot-starter-security   Auth (Basic, JWT, OAuth2)
+flyway / liquibase              DB schema migrations (use instead of ddl-auto in prod)
+spring-boot-starter-actuator   Health checks & metrics endpoints
+
+
+QUICK REFERENCE
+---------------
+GET    /resource         → findAll  → 200
+GET    /resource/{id}    → findById → 200 / 404
+POST   /resource         → save     → 201
+PUT    /resource/{id}    → update   → 200 / 404
+DELETE /resource/{id}    → delete   → 204 / 404

@@ -1,6 +1,7 @@
 package com.michaelhope.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.michaelhope.service.EngineerAuditService;
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.exception.GlobalExceptionHandler;
@@ -36,6 +37,9 @@ class SoftwareEngineerControllerTest {
     @MockitoBean
     private SoftwareEngineerService service;
 
+    @MockitoBean
+    private EngineerAuditService auditService;
+
     @Test
     void getEngineers_returns200WithList() throws Exception {
         when(service.getAllSoftwareEngineers()).thenReturn(
@@ -67,6 +71,15 @@ class SoftwareEngineerControllerTest {
 
         mockMvc.perform(get("/api/v1/software-engineer/99"))
             .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getEngineerHistory_returns200WithEvents() throws Exception {
+        when(auditService.getHistory(1)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/software-engineer/1/history"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("[]"));
     }
 
     @Test

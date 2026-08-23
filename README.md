@@ -8,6 +8,7 @@ A simple CRUD REST API built with Spring Boot for personal learning. Manages a l
 - Spring Boot 3.5
 - Spring Data JPA + Hibernate
 - PostgreSQL
+- Apache Kafka via Spring Kafka
 - Bean Validation
 - JUnit 5 + Mockito
 
@@ -21,6 +22,8 @@ src/main/java/com/michaelhope/
 ├── model/         JPA entity
 ├── dto/           Request / Response records
 ├── mapper/        Entity ↔ DTO conversion
+├── event/         Versioned Kafka event contracts and publisher
+├── consumer/      Kafka consumers
 └── exception/     ResourceNotFoundException + GlobalExceptionHandler
 ```
 
@@ -49,6 +52,12 @@ The API is available at `http://localhost:8080`.
 | POST   | `/api/v1/software-engineer`       | Add a new engineer   |
 | PUT    | `/api/v1/software-engineer/{id}`  | Update an engineer   |
 | DELETE | `/api/v1/software-engineer/{id}`  | Delete an engineer   |
+| GET    | `/api/v1/software-engineer/{id}/history` | Get CRUD event history |
+
+CRUD mutations publish versioned events to `software-engineer.events.v1`, keyed
+by engineer ID. The audit consumer stores them in the `engineer_audit` table.
+History is eventually consistent with the CRUD response because Kafka
+processing happens asynchronously.
 
 **Request body (POST / PUT):**
 

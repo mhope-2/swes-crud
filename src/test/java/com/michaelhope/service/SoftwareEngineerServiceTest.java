@@ -2,6 +2,7 @@ package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
+import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.model.SoftwareEngineer;
 import com.michaelhope.repository.SoftwareEngineerRepository;
@@ -26,6 +27,9 @@ class SoftwareEngineerServiceTest {
 
     @Mock
     private SoftwareEngineerRepository repository;
+
+    @Mock
+    private SoftwareEngineerEventPublisher eventPublisher;
 
     @InjectMocks
     private SoftwareEngineerService service;
@@ -103,7 +107,7 @@ class SoftwareEngineerServiceTest {
 
     @Test
     void deleteSoftwareEngineer_deletesWhenFound() {
-        when(repository.existsById(1)).thenReturn(true);
+        when(repository.findById(1)).thenReturn(Optional.of(engineer));
 
         service.deleteSoftwareEngineer(1);
 
@@ -112,7 +116,7 @@ class SoftwareEngineerServiceTest {
 
     @Test
     void deleteSoftwareEngineer_throwsWhenNotFound() {
-        when(repository.existsById(99)).thenReturn(false);
+        when(repository.findById(99)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.deleteSoftwareEngineer(99))
             .isInstanceOf(ResourceNotFoundException.class)

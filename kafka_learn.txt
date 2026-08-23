@@ -1,0 +1,166 @@
+Kafka Learning Plan for the Software Engineer CRUD API
+========================================================
+
+Goal
+----
+Use this small Spring Boot CRUD project to learn event-driven architecture
+incrementally, while keeping PostgreSQL as the source of truth.
+
+Current project
+---------------
+The application currently performs synchronous CRUD operations on the
+SoftwareEngineer entity:
+
+  POST  /api/v1/software-engineer       create
+  PUT   /api/v1/software-engineer/{id}  update
+  DELETE /api/v1/software-engineer/{id} delete
+
+There are currently no Kafka producers, consumers, topics, or asynchronous
+workflows.
+
+Extension 1: CRUD events and an audit consumer
+-----------------------------------------------
+
+Publish an event for every mutation:
+
+  software-engineer.created
+  software-engineer.updated
+  software-engineer.deleted
+
+Add an audit consumer that stores events in an engineer_audit table. Expose a
+new endpoint:
+
+  GET /api/v1/software-engineer/{id}/history
+
+Suggested event fields:
+
+  eventId
+  eventType
+  aggregateId       (the engineer ID)
+  occurredAt
+  aggregateVersion
+  payload
+
+Use the engineer ID as the Kafka message key so events for one engineer remain
+ordered.
+
+Concepts learned:
+
+  - Kafka producers and consumers
+  - Topics, partitions, keys, and offsets
+  - Consumer groups
+  - Event schemas and versioning
+  - Eventual consistency
+  - Idempotent consumers
+
+
+Extension 2: Search as a Kafka-built read model
+------------------------------------------------
+
+Add a consumer that maintains a separate projection table, for example:
+
+  engineer_search_view
+
+Add an endpoint such as:
+
+  GET /api/v1/software-engineer/search?techStack=Java
+
+The normal CRUD tables remain the write model. The Kafka consumer builds the
+read model from created, updated, and deleted events.
+
+Concepts learned:
+
+  - CQRS
+  - Read-model projections
+  - Rebuilding projections by replaying events
+  - Handling stale or missing read data
+  - Separating write and read concerns
+
+The projection can remain in PostgreSQL at first. Elasticsearch or OpenSearch
+is unnecessary for this exercise. Since techStack is currently a free-form
+string, it could later be replaced with normalized skills such as a list of
+technology names.
+
+
+Extension 3: Asynchronous notifications
+-----------------------------------------
+
+When an engineer is created or updated, publish an event consumed by a
+notification worker.
+
+Start with a simple notifications table:
+
+  notifications
+    id
+    engineer_id
+    message
+    status
+    created_at
+
+The worker can record a notification instead of sending a real email. Later,
+simulate failures and add retries, exponential backoff, and a dead-letter
+topic.
+
+Concepts learned:
+
+  - Asynchronous processing
+  - Failure handling
+  - Retries and dead-letter topics
+  - At-least-once delivery
+  - Idempotency and duplicate messages
+
+
+Recommended implementation order
+---------------------------------
+
+1. Add Spring Kafka and run Kafka locally with Docker Compose.
+2. Define a versioned event format and one topic:
+     software-engineer.events.v1
+3. Directly publish create, update, and delete events using KafkaTemplate.
+4. Build the audit consumer.
+5. Add duplicate-event handling, retries, and a dead-letter topic.
+6. Build the search projection or notification consumer.
+7. Replace direct publishing with a transactional outbox.
+
+
+Transactional outbox milestone
+------------------------------
+
+Direct publishing is useful for the first experiment, but it has a reliability
+problem: the database update can succeed while publishing to Kafka fails.
+
+Implement an outbox table where the database update and event creation happen
+in the same PostgreSQL transaction. A separate publisher reads pending outbox
+records and sends them to Kafka.
+
+This teaches the important boundary between database consistency and message
+delivery without replacing PostgreSQL with Kafka.
+
+
+Final target architecture
+--------------------------
+
+  HTTP request
+      |
+      v
+  CRUD service ---- PostgreSQL write model
+      |
+      v
+  Outbox publisher ---- Kafka topic
+                            |
+               +------------+------------+
+               v                         v
+        Audit consumer             Search/notification consumer
+        audit history              read model or async workflow
+
+
+Important principles
+--------------------
+
+  - Keep PostgreSQL as the source of truth.
+  - Use the engineer ID as the event key.
+  - Give every event a unique eventId.
+  - Make consumers safe to run more than once.
+  - Expect eventual consistency in projections and notifications.
+  - Add schemaVersion before changing event payloads.
+  - Use the outbox pattern for reliable database-to-Kafka publishing.
