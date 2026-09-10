@@ -29,11 +29,14 @@ src/main/java/com/michaelhope/
 
 ## Running the App
 
-**1. Start the database**
+**1. Start PostgreSQL and Kafka**
 
 ```bash
-docker-compose up -d
+docker compose up -d db kafka
 ```
+
+This starts the infrastructure dependencies only. It avoids starting the
+containerized `app` service when running the application locally with Maven.
 
 **2. Run the application**
 
@@ -42,6 +45,42 @@ docker-compose up -d
 ```
 
 The API is available at `http://localhost:8080`.
+
+### Run with virtual threads
+
+The virtual-thread profile is opt-in, so the default platform-thread
+configuration remains available for comparison:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=virtual
+```
+
+The profile enables Spring Boot's virtual-thread support through
+`src/main/resources/application-virtual.properties`.
+
+### Using Dory instead of Docker or OrbStack
+
+Dory provides a Docker-compatible engine and Compose v2, so this project does
+not require a different Compose file. Install and open Dory, wait until its
+engine is ready, then select its Docker context:
+
+```bash
+docker context use dory
+dory doctor --active
+docker compose up -d db kafka
+./mvnw spring-boot:run -Dspring-boot.run.profiles=virtual
+```
+
+Dory publishes the PostgreSQL and Kafka ports to localhost, matching the
+connection settings used by the local Maven run. Switch back to another
+runtime by selecting its Docker context, for example:
+
+```bash
+docker context use orbstack
+```
+
+See the [Dory documentation](https://github.com/Augani/dory) for installation,
+context setup, and runtime diagnostics.
 
 ## API Endpoints
 
