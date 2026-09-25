@@ -1,7 +1,9 @@
 package com.michaelhope.dto;
 
+import java.util.List;
+
 public record SoftwareEngineerResponse(
     Integer id,
     String name,
-    String techStack
+    List<String> technologies
 ) {}

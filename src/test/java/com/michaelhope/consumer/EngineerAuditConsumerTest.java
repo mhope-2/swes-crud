@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 
 class EngineerAuditConsumerTest {
 
-    private static final String TOPIC = "software-engineer.events.v1";
+    private static final String TOPIC = "software-engineer.events.v2";
 
     @Test
     void persistsNewEvent() {
@@ -68,7 +68,7 @@ class EngineerAuditConsumerTest {
             Instant.now(),
             1,
             "{\"id\":1}",
-            1
+            2
         );
     }
 

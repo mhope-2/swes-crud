@@ -6,12 +6,15 @@ import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.mapper.SoftwareEngineerMapper;
 import com.michaelhope.model.SoftwareEngineer;
+import com.michaelhope.model.Technology;
 import com.michaelhope.repository.SoftwareEngineerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 
 @Service
@@ -21,7 +24,9 @@ public class SoftwareEngineerService {
 
     private final SoftwareEngineerRepository repository;
     private final SoftwareEngineerEventPublisher eventPublisher;
+    private final TechnologyService technologyService;
 
+    @Transactional(readOnly = true)
     public List<SoftwareEngineerResponse> getAllSoftwareEngineers() {
         long startedAt = System.nanoTime();
         log.debug("engineers.list.started");
@@ -33,6 +38,7 @@ public class SoftwareEngineerService {
         return responses;
     }
 
+    @Transactional(readOnly = true)
     public SoftwareEngineerResponse getSoftwareEngineerById(Integer id) {
         SoftwareEngineerResponse response = repository.findById(id)
             .map(SoftwareEngineerMapper::toResponse)
@@ -41,21 +47,27 @@ public class SoftwareEngineerService {
         return response;
     }
 
+    @Transactional
     public SoftwareEngineerResponse addSoftwareEngineer(SoftwareEngineerRequest request) {
-        SoftwareEngineer entity = SoftwareEngineerMapper.toEntity(request);
+        Set<Technology> technologies = technologyService.resolve(request.technologies());
+        SoftwareEngineer entity = SoftwareEngineerMapper.toEntity(request, technologies);
         entity.setAggregateVersion(1);
         SoftwareEngineer saved = repository.save(entity);
         eventPublisher.publish("software-engineer.created", saved, 1);
         log.info("engineer.created aggregateId={} aggregateVersion={}",
             saved.getId(), 1);
+        log.debug("engineer.created.technology_count aggregateId={} technologyCount={}",
+            saved.getId(), saved.getTechnologies().size());
         return SoftwareEngineerMapper.toResponse(saved);
     }
 
+    @Transactional
     public SoftwareEngineerResponse updateSoftwareEngineer(Integer id, SoftwareEngineerRequest request) {
         SoftwareEngineer engineer = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Software engineer with id " + id + " not found"));
+        Set<Technology> technologies = technologyService.resolve(request.technologies());
         engineer.setName(request.name());
-        engineer.setTechStack(request.techStack());
+        engineer.setTechnologies(technologies);
         int nextVersion = nextVersion(engineer);
         int previousVersion = engineer.getAggregateVersion() == null ? 0 : engineer.getAggregateVersion();
         engineer.setAggregateVersion(nextVersion);
@@ -63,9 +75,12 @@ public class SoftwareEngineerService {
         eventPublisher.publish("software-engineer.updated", saved, nextVersion);
         log.info("engineer.updated aggregateId={} previousVersion={} aggregateVersion={}",
             saved.getId(), previousVersion, nextVersion);
+        log.debug("engineer.updated.technology_count aggregateId={} technologyCount={}",
+            saved.getId(), saved.getTechnologies().size());
         return SoftwareEngineerMapper.toResponse(saved);
     }
 
+    @Transactional
     public void deleteSoftwareEngineer(Integer id) {
         SoftwareEngineer engineer = repository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Software engineer with id " + id + " not found"));

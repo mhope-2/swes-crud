@@ -1,6 +1,6 @@
 # Spring Boot REST API — Learning Project
 
-A simple CRUD REST API built with Spring Boot for personal learning. Manages a list of software engineers stored in PostgreSQL.
+A simple CRUD REST API built with Spring Boot for personal learning. Manages a list of software engineers stored in PostgreSQL. Technologies are normalized into reusable rows linked to engineers through a join table.
 
 ## Tech Stack
 
@@ -19,7 +19,7 @@ src/main/java/com/michaelhope/
 ├── controller/    REST endpoints
 ├── service/       Business logic
 ├── repository/    Database access (JPA)
-├── model/         JPA entity
+├── model/         JPA entities, including Technology
 ├── dto/           Request / Response records
 ├── mapper/        Entity ↔ DTO conversion
 ├── event/         Versioned Kafka event contracts and publisher
@@ -93,19 +93,26 @@ context setup, and runtime diagnostics.
 | DELETE | `/api/v1/software-engineer/{id}`  | Delete an engineer   |
 | GET    | `/api/v1/software-engineer/{id}/history` | Get CRUD event history |
 
-CRUD mutations publish versioned events to `software-engineer.events.v1`, keyed
+CRUD mutations publish versioned events to `software-engineer.events.v2`, keyed
 by engineer ID. The audit consumer stores them in the `engineer_audit` table.
 History is eventually consistent with the CRUD response because Kafka
 processing happens asynchronously.
+
+The application uses Hibernate `update` for this learning project. On startup,
+`TechnologyBackfillRunner` migrates values from a legacy `tech_stack` column
+when present. The legacy column is intentionally retained until a versioned
+production migration is introduced.
 
 **Request body (POST / PUT):**
 
 ```json
 {
   "name": "Alice",
-  "techStack": "Java"
+  "technologies": ["Java", "Spring", "PostgreSQL"]
 }
 ```
+
+Technology names are trimmed, normalized case-insensitively, deduplicated, and returned in alphabetical order. PostgreSQL stores reusable `technology` rows and a `software_engineer_technology` join table.
 
 ## Running Tests
 

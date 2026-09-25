@@ -43,20 +43,20 @@ class SoftwareEngineerControllerTest {
     @Test
     void getEngineers_returns200WithList() throws Exception {
         when(service.getAllSoftwareEngineers()).thenReturn(
-            List.of(new SoftwareEngineerResponse(1, "Alice", "Java"))
+            List.of(new SoftwareEngineerResponse(1, "Alice", List.of("Java")))
         );
 
         mockMvc.perform(get("/api/v1/software-engineer"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(1))
             .andExpect(jsonPath("$[0].name").value("Alice"))
-            .andExpect(jsonPath("$[0].techStack").value("Java"));
+            .andExpect(jsonPath("$[0].technologies[0]").value("Java"));
     }
 
     @Test
     void getEngineerById_returns200WhenFound() throws Exception {
         when(service.getSoftwareEngineerById(1)).thenReturn(
-            new SoftwareEngineerResponse(1, "Alice", "Java")
+            new SoftwareEngineerResponse(1, "Alice", List.of("Java"))
         );
 
         mockMvc.perform(get("/api/v1/software-engineer/1"))
@@ -84,9 +84,9 @@ class SoftwareEngineerControllerTest {
 
     @Test
     void addEngineer_returns201WithBody() throws Exception {
-        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Bob", "Kotlin");
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Bob", List.of("Kotlin"));
         when(service.addSoftwareEngineer(any(SoftwareEngineerRequest.class)))
-            .thenReturn(new SoftwareEngineerResponse(2, "Bob", "Kotlin"));
+            .thenReturn(new SoftwareEngineerResponse(2, "Bob", List.of("Kotlin")));
 
         mockMvc.perform(post("/api/v1/software-engineer")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -98,7 +98,7 @@ class SoftwareEngineerControllerTest {
 
     @Test
     void addEngineer_returns400WhenNameBlank() throws Exception {
-        SoftwareEngineerRequest request = new SoftwareEngineerRequest("", "Kotlin");
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("", List.of("Kotlin"));
 
         mockMvc.perform(post("/api/v1/software-engineer")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -108,9 +108,9 @@ class SoftwareEngineerControllerTest {
 
     @Test
     void updateEngineer_returns200WithUpdatedBody() throws Exception {
-        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Alice Updated", "Go");
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Alice Updated", List.of("Go"));
         when(service.updateSoftwareEngineer(eq(1), any(SoftwareEngineerRequest.class)))
-            .thenReturn(new SoftwareEngineerResponse(1, "Alice Updated", "Go"));
+            .thenReturn(new SoftwareEngineerResponse(1, "Alice Updated", List.of("Go")));
 
         mockMvc.perform(put("/api/v1/software-engineer/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +126,7 @@ class SoftwareEngineerControllerTest {
 
         mockMvc.perform(put("/api/v1/software-engineer/99")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new SoftwareEngineerRequest("X", "Y"))))
+                .content(objectMapper.writeValueAsString(new SoftwareEngineerRequest("X", List.of("Y")))))
             .andExpect(status().isNotFound());
     }
 

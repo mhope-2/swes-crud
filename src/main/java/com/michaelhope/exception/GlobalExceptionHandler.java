@@ -36,6 +36,14 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "Request validation failed");
     }
 
+    @ExceptionHandler(InvalidTechnologyException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleInvalidTechnology(InvalidTechnologyException ex) {
+        log.warn("request.invalid_technology errorType={} message={}",
+            ex.getClass().getSimpleName(), ex.getMessage());
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiError handleMalformedRequest(HttpMessageNotReadableException ex) {

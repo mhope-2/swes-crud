@@ -1,0 +1,328 @@
+# SoftwareEngineer technology normalization plan
+
+## Goal
+
+Replace the denormalized `SoftwareEngineer.techStack` string with a normalized many-to-many relationship between software engineers and reusable technologies.
+
+The current values can contain comma-separated data such as:
+
+```text
+sql, databases, java, spring
+```
+
+This should become separate rows linked through a join table.
+
+## Recommended data model
+
+Use `Technology` as the entity name rather than `TechStack`, because the existing values represent individual technologies. A named stack such as `Java backend` could be introduced later as a separate concept.
+
+```text
+software_engineer
+-----------------
+id                 PK
+name
+aggregate_version
+
+technology
+----------
+id                 PK
+name               UNIQUE, normalized
+
+software_engineer_technology
+----------------------------
+software_engineer_id         FK -> software_engineer.id
+technology_id                FK -> technology.id
+PRIMARY KEY (software_engineer_id, technology_id)
+```
+
+## Design decisions to confirm
+
+- [ ] Confirm that an engineer can have multiple technologies.
+- [ ] Confirm that technologies are shared and reusable across engineers.
+- [ ] Confirm that technology names should be case-insensitive.
+- [ ] Confirm whether `Java` and `java` must resolve to one row.
+- [ ] Confirm whether technology display casing should be preserved separately from the normalized lookup value.
+- [ ] Confirm whether technology ordering matters. Default assumption: no ordering, therefore use a `Set`.
+- [ ] Confirm whether the API should expose technology names, IDs, or both. Recommended: names externally, IDs internally.
+- [ ] Confirm whether an empty technology collection is valid. Recommended: reject empty collections for new and updated engineers unless the business requires otherwise.
+
+## Phase 1 — Add the domain model
+
+### Files
+
+- `src/main/java/com/michaelhope/model/Technology.java`
+- `src/main/java/com/michaelhope/model/SoftwareEngineer.java`
+
+### TODOs
+
+- [ ] Create a `Technology` JPA entity.
+- [ ] Add an auto-generated `Integer` or `Long` primary key.
+- [ ] Add a unique technology name column.
+- [ ] Decide whether to store one canonical name or both `name` and `normalizedName`.
+- [ ] Add validation so blank technology names cannot be persisted.
+- [ ] Add equality semantics based on the stable identifier or normalized name.
+- [ ] Replace `SoftwareEngineer.techStack` with a `Set<Technology>` field named `technologies`.
+- [ ] Add the many-to-many join table mapping.
+- [ ] Use explicit table and column names instead of relying on generated names.
+- [ ] Initialize the collection to an empty `HashSet`.
+- [ ] Do not cascade removal from an engineer to a shared technology.
+- [ ] Decide whether `CascadeType.PERSIST` or explicit technology persistence is preferred. Recommended: resolve technologies in the service and persist them explicitly.
+- [ ] Prevent accidental lazy-loading problems when mapping entities to responses.
+
+### Suggested JPA relationship
+
+```java
+@ManyToMany
+@JoinTable(
+    name = "software_engineer_technology",
+    joinColumns = @JoinColumn(name = "software_engineer_id"),
+    inverseJoinColumns = @JoinColumn(name = "technology_id")
+)
+private Set<Technology> technologies = new HashSet<>();
+```
+
+## Phase 2 — Add repositories and normalization logic
+
+### Files
+
+- `src/main/java/com/michaelhope/repository/TechnologyRepository.java`
+- New service or helper for technology resolution.
+- `src/main/java/com/michaelhope/service/SoftwareEngineerService.java`
+
+### TODOs
+
+- [ ] Create `TechnologyRepository`.
+- [ ] Add lookup by normalized name.
+- [ ] Add a method for resolving multiple names efficiently.
+- [ ] Normalize incoming values by trimming whitespace.
+- [ ] Reject blank values after trimming.
+- [ ] Normalize case consistently, preferably using locale-independent lower casing.
+- [ ] Remove duplicate technologies from a request.
+- [ ] Preserve a predictable display name, for example `Java` rather than `java`.
+- [ ] Decide whether unknown technologies should be created automatically. Recommended: create them on demand for this learning project.
+- [ ] Make technology creation safe when two requests introduce the same technology concurrently.
+- [ ] Handle unique-constraint conflicts by reloading the existing technology.
+- [ ] Avoid one database query per technology where possible.
+- [ ] Return technologies in deterministic alphabetical order in API responses.
+
+## Phase 3 — Change DTOs and API contracts
+
+### Files
+
+- `src/main/java/com/michaelhope/dto/SoftwareEngineerRequest.java`
+- `src/main/java/com/michaelhope/dto/SoftwareEngineerResponse.java`
+- `src/main/java/com/michaelhope/dto/EngineerAuditResponse.java`
+- `src/main/java/com/michaelhope/controller/SoftwareEngineerController.java`
+
+### TODOs
+
+- [ ] Replace the request `techStack` string with a collection of technology names.
+- [ ] Use a `Set<String>` or `List<String>` according to the ordering decision. Recommended: accept a list and normalize it into a set internally.
+- [ ] Add validation for null, empty, blank, and excessively long technology names.
+- [ ] Decide whether duplicate request values should be silently deduplicated or rejected. Recommended: deduplicate.
+- [ ] Replace the response `techStack` field with `technologies`.
+- [ ] Return normalized technology names in responses.
+- [ ] Update OpenAPI/API documentation if documentation is added later.
+- [ ] Update `requests.http` examples.
+- [ ] Update README request and response examples.
+- [ ] Decide whether to support the old `techStack` request field temporarily for backwards compatibility.
+
+### Recommended request shape
+
+```json
+{
+  "name": "Alice",
+  "technologies": ["Java", "Spring", "PostgreSQL", "Kafka"]
+}
+```
+
+### Recommended response shape
+
+```json
+{
+  "id": 1,
+  "name": "Alice",
+  "technologies": ["Java", "Kafka", "PostgreSQL", "Spring"]
+}
+```
+
+## Phase 4 — Update mapper and service behavior
+
+### Files
+
+- `src/main/java/com/michaelhope/mapper/SoftwareEngineerMapper.java`
+- `src/main/java/com/michaelhope/service/SoftwareEngineerService.java`
+- `src/main/java/com/michaelhope/service/EngineerAuditService.java`
+
+### TODOs
+
+- [ ] Update entity-to-response mapping to convert `Set<Technology>` into sorted names.
+- [ ] Update request-to-entity mapping so technology resolution happens through a service rather than a static mapper.
+- [ ] Resolve or create technologies before saving a new engineer.
+- [ ] Resolve or create technologies before saving an update.
+- [ ] Replace the engineer’s relationship set atomically during update.
+- [ ] Ensure removing a technology from an engineer removes only the join-table row.
+- [ ] Ensure deleting an engineer does not delete shared technologies.
+- [ ] Keep aggregate version increments unchanged.
+- [ ] Ensure failed technology resolution prevents the engineer mutation from being committed.
+- [ ] Add explicit transaction boundaries around create, update, and delete operations.
+- [ ] Avoid returning entities with uninitialized lazy collections after the transaction closes.
+- [ ] Consider fetch joins or entity graphs for engineer reads with technologies.
+- [ ] Log technology count, not full technology values, at normal application log levels.
+
+## Phase 5 — Update Kafka events and audit history
+
+### Files
+
+- `src/main/java/com/michaelhope/event/SoftwareEngineerEvent.java`
+- `src/main/java/com/michaelhope/event/SoftwareEngineerEventPublisher.java`
+- `src/main/java/com/michaelhope/dto/EngineerAuditResponse.java`
+- `src/main/java/com/michaelhope/model/EngineerAudit.java`
+
+### TODOs
+
+- [ ] Replace the event payload’s single `techStack` value with a `technologies` array.
+- [ ] Decide whether event payloads contain technology names, IDs, or both. Recommended: canonical names plus IDs only if consumers need them.
+- [ ] Keep event payloads self-contained so audit history remains understandable after later database changes.
+- [ ] Update the payload serialization code.
+- [ ] Increment the event schema version because the payload shape changes.
+- [ ] Decide whether to publish a new event topic version, for example `software-engineer.events.v2`.
+- [ ] Update the consumer to accept the new event schema.
+- [ ] Decide whether old and new event schemas must be consumed simultaneously during rollout.
+- [ ] Update audit-history response mapping.
+- [ ] Verify that audit payloads do not expose unintended internal database fields.
+- [ ] Update event publisher and consumer tests for create, update, and delete events.
+
+## Phase 6 — Database migration and data backfill
+
+The project currently uses `spring.jpa.hibernate.ddl-auto=create-drop`, which is suitable for learning but destroys data on restart. A durable normalization change should use a migration tool before production use.
+
+### TODOs
+
+- [ ] Decide whether to add Flyway or Liquibase.
+- [ ] Change production schema management from `create-drop` to `validate` or migration-managed schema.
+- [ ] Add the `technology` table.
+- [ ] Add the `software_engineer_technology` join table.
+- [ ] Add unique constraints for technology names.
+- [ ] Add foreign keys with appropriate delete behavior.
+- [ ] Add indexes on both join-table foreign-key columns.
+- [ ] Backfill technologies by splitting existing `tech_stack` values on commas.
+- [ ] Trim whitespace during backfill.
+- [ ] Normalize case during backfill.
+- [ ] Deduplicate technology names before inserting.
+- [ ] Populate the join table for every existing engineer.
+- [ ] Validate row counts before removing the old `tech_stack` column.
+- [ ] Keep the old column temporarily if a rolling deployment requires compatibility.
+- [ ] Remove the old column only after all application instances use the normalized model.
+- [ ] Add a rollback strategy for the migration.
+
+## Phase 7 — Backwards compatibility and rollout
+
+### TODOs
+
+- [ ] Decide whether this is a breaking API change.
+- [ ] If breaking, document the new request and response fields clearly.
+- [ ] If non-breaking, support reading the old field during a transition period.
+- [ ] If non-breaking, define precedence when both `techStack` and `technologies` are supplied.
+- [ ] Deploy schema changes before deploying code that requires the new tables.
+- [ ] Deploy code that can read both old and new representations if zero-downtime rollout is required.
+- [ ] Start dual-writing only if necessary.
+- [ ] Monitor migration errors and unique-constraint conflicts.
+- [ ] Remove compatibility code after all clients migrate.
+
+## Phase 8 — Query and performance review
+
+### TODOs
+
+- [ ] Test engineer list queries with technologies loaded.
+- [ ] Check for N+1 queries when mapping engineers to responses.
+- [ ] Add a fetch strategy suitable for list and detail endpoints.
+- [ ] Consider pagination for engineer lists.
+- [ ] Add pagination if technology history or relationship counts grow significantly.
+- [ ] Add an index for case-insensitive technology lookup if the database requires it.
+- [ ] Measure create and update behavior with many technologies.
+- [ ] Confirm that duplicate join rows cannot be inserted.
+
+## Phase 9 — Tests
+
+### Unit tests
+
+- [ ] Test technology name trimming.
+- [ ] Test case normalization.
+- [ ] Test duplicate removal.
+- [ ] Test blank and invalid technology rejection.
+- [ ] Test technology creation and reuse.
+- [ ] Test concurrent duplicate technology handling.
+- [ ] Test mapper output ordering.
+
+### Service tests
+
+- [ ] Test creating an engineer with new technologies.
+- [ ] Test creating an engineer using existing technologies.
+- [ ] Test updating an engineer’s technology set.
+- [ ] Test removing a technology from one engineer without deleting the technology.
+- [ ] Test deleting an engineer while preserving shared technologies.
+- [ ] Test transaction rollback when technology resolution fails.
+- [ ] Test aggregate version behavior remains unchanged.
+
+### Controller tests
+
+- [ ] Update existing POST and PUT request bodies.
+- [ ] Test missing technologies.
+- [ ] Test blank technology names.
+- [ ] Test duplicate technology names.
+- [ ] Test response technology ordering.
+- [ ] Test backwards compatibility behavior if implemented.
+
+### Persistence/integration tests
+
+- [ ] Verify the join table schema.
+- [ ] Verify unique technology constraints.
+- [ ] Verify foreign-key behavior.
+- [ ] Verify backfilled data.
+- [ ] Verify no N+1 query regression.
+
+### Event tests
+
+- [ ] Verify event payloads contain `technologies`.
+- [ ] Verify the schema version is updated.
+- [ ] Verify audit rows preserve technology information.
+- [ ] Verify old event handling if dual-version consumption is required.
+
+## Phase 10 — Documentation and cleanup
+
+### TODOs
+
+- [ ] Update README architecture and project structure.
+- [ ] Update API endpoint examples.
+- [ ] Update `requests.http`.
+- [ ] Document technology normalization and casing rules.
+- [ ] Document migration and rollback steps.
+- [ ] Remove the old `techStack` field from Java code after migration completion.
+- [ ] Remove compatibility code after the transition period.
+- [ ] Add a short explanation of why technologies are modeled separately.
+
+## Acceptance criteria
+
+- [ ] `SoftwareEngineer` no longer stores a comma-separated technology string.
+- [ ] A technology can be associated with multiple engineers.
+- [ ] An engineer can have multiple technologies.
+- [ ] Duplicate and case-variant technology names resolve consistently.
+- [ ] Deleting an engineer does not delete shared technology rows.
+- [ ] API responses expose normalized technology names.
+- [ ] Kafka events and audit history contain the normalized technology collection.
+- [ ] Existing data is migrated without loss.
+- [ ] Tests cover normalization, persistence, API behavior, events, and migration.
+- [ ] No N+1 query or unintended cascade-delete behavior is introduced.
+
+## Recommended implementation order
+
+1. Confirm the design decisions.
+2. Add `Technology` and the relationship mapping.
+3. Add repositories and normalization/resolution logic.
+4. Update DTOs, mapper, and service transactions.
+5. Update events and audit payloads with a new schema version.
+6. Add and test the database migration/backfill.
+7. Update API tests and documentation.
+8. Run performance and integration checks.
+9. Remove the old `techStack` field after rollout.

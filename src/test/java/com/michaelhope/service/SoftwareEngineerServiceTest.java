@@ -5,6 +5,7 @@ import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.model.SoftwareEngineer;
+import com.michaelhope.model.Technology;
 import com.michaelhope.repository.SoftwareEngineerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,9 @@ class SoftwareEngineerServiceTest {
     @Mock
     private SoftwareEngineerEventPublisher eventPublisher;
 
+    @Mock
+    private TechnologyService technologyService;
+
     @InjectMocks
     private SoftwareEngineerService service;
 
@@ -49,6 +53,7 @@ class SoftwareEngineerServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).name()).isEqualTo("Alice");
+        assertThat(result.get(0).technologies()).containsExactly("Java");
     }
 
     @Test
@@ -58,7 +63,7 @@ class SoftwareEngineerServiceTest {
         SoftwareEngineerResponse result = service.getSoftwareEngineerById(1);
 
         assertThat(result.name()).isEqualTo("Alice");
-        assertThat(result.techStack()).isEqualTo("Java");
+        assertThat(result.technologies()).containsExactly("Java");
     }
 
     @Test
@@ -72,8 +77,9 @@ class SoftwareEngineerServiceTest {
 
     @Test
     void addSoftwareEngineer_savesAndReturnsResponse() {
-        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Bob", "Kotlin");
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Bob", List.of("Kotlin"));
         SoftwareEngineer saved = new SoftwareEngineer(2, "Bob", "Kotlin");
+        when(technologyService.resolve(any())).thenReturn(saved.getTechnologies());
         when(repository.save(any(SoftwareEngineer.class))).thenReturn(saved);
 
         SoftwareEngineerResponse result = service.addSoftwareEngineer(request);
@@ -85,14 +91,15 @@ class SoftwareEngineerServiceTest {
 
     @Test
     void updateSoftwareEngineer_updatesFieldsAndReturnsResponse() {
-        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Alice Updated", "Go");
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Alice Updated", List.of("Go"));
+        when(technologyService.resolve(any())).thenReturn(engineer.getTechnologies());
         when(repository.findById(1)).thenReturn(Optional.of(engineer));
         when(repository.save(engineer)).thenReturn(new SoftwareEngineer(1, "Alice Updated", "Go"));
 
         SoftwareEngineerResponse result = service.updateSoftwareEngineer(1, request);
 
         assertThat(result.name()).isEqualTo("Alice Updated");
-        assertThat(result.techStack()).isEqualTo("Go");
+        assertThat(result.technologies()).containsExactly("Go");
         verify(repository).save(engineer);
     }
 
@@ -100,7 +107,7 @@ class SoftwareEngineerServiceTest {
     void updateSoftwareEngineer_throwsWhenNotFound() {
         when(repository.findById(99)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.updateSoftwareEngineer(99, new SoftwareEngineerRequest("X", "Y")))
+        assertThatThrownBy(() -> service.updateSoftwareEngineer(99, new SoftwareEngineerRequest("X", List.of("Y"))))
             .isInstanceOf(ResourceNotFoundException.class)
             .hasMessage("Software engineer with id 99 not found");
     }

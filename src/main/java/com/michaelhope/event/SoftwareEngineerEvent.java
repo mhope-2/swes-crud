@@ -13,6 +13,8 @@ public record SoftwareEngineerEvent(
     Integer schemaVersion
 ) {
 
+    public static final int CURRENT_SCHEMA_VERSION = 2;
+
     public SoftwareEngineerEvent(
             UUID eventId,
             String eventType,
@@ -20,6 +22,6 @@ public record SoftwareEngineerEvent(
             Instant occurredAt,
             Integer aggregateVersion,
             String payload) {
-        this(eventId, eventType, aggregateId, occurredAt, aggregateVersion, payload, 1);
+        this(eventId, eventType, aggregateId, occurredAt, aggregateVersion, payload, CURRENT_SCHEMA_VERSION);
     }
 }

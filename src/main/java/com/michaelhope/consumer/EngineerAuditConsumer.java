@@ -20,7 +20,10 @@ public class EngineerAuditConsumer {
 
     private final EngineerAuditRepository repository;
 
-    @KafkaListener(topics = KafkaTopics.SOFTWARE_ENGINEER_EVENTS_V1)
+    @KafkaListener(topics = {
+        KafkaTopics.SOFTWARE_ENGINEER_EVENTS_V1,
+        KafkaTopics.SOFTWARE_ENGINEER_EVENTS_V2
+    })
     public void consume(ConsumerRecord<String, SoftwareEngineerEvent> record) {
         SoftwareEngineerEvent event = record.value();
         long startedAt = System.nanoTime();

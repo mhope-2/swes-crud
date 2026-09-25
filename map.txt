@@ -39,7 +39,7 @@ HTTP Request
 KEY CONFIG (application.properties)
 ------------------------------------
 spring.datasource.url          DB connection string
-spring.jpa.hibernate.ddl-auto  create-drop (dev) | validate/none (prod)
+spring.jpa.hibernate.ddl-auto  update (learning) | validate/migrations (prod)
 spring.jpa.show-sql            true to log generated SQL
 
 

@@ -3,6 +3,7 @@ package com.michaelhope.event;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michaelhope.model.SoftwareEngineer;
+import com.michaelhope.model.Technology;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -10,6 +11,8 @@ import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,11 +32,11 @@ public class SoftwareEngineerEventPublisher {
             Instant.now(),
             aggregateVersion,
             payloadFor(engineer),
-            1
+            SoftwareEngineerEvent.CURRENT_SCHEMA_VERSION
         );
 
         // The engineer ID is the key, so Kafka keeps one engineer's events ordered.
-        String topic = KafkaTopics.SOFTWARE_ENGINEER_EVENTS_V1;
+        String topic = KafkaTopics.SOFTWARE_ENGINEER_EVENTS_V2;
         String key = String.valueOf(engineer.getId());
         long startedAt = System.nanoTime();
 
@@ -76,7 +79,10 @@ public class SoftwareEngineerEventPublisher {
             return objectMapper.writeValueAsString(Map.of(
                 "id", engineer.getId(),
                 "name", engineer.getName(),
-                "techStack", engineer.getTechStack()
+                "technologies", engineer.getTechnologies().stream()
+                    .map(Technology::getName)
+                    .sorted(Comparator.comparing(value -> value.toLowerCase(Locale.ROOT)))
+                    .toList()
             ));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Could not serialize software engineer event payload", exception);
