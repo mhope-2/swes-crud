@@ -1,6 +1,7 @@
 package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
+import com.michaelhope.dto.SoftwareEngineerPageResponse;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.cache.CacheNames;
 import com.michaelhope.cache.EngineerResponseCache;
@@ -14,10 +15,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import com.michaelhope.pagination.OffsetLimitPageable;
 
 
 @Service
@@ -31,15 +40,30 @@ public class SoftwareEngineerService {
     private final EngineerResponseCache engineerResponseCache;
 
     @Transactional(readOnly = true)
-    public List<SoftwareEngineerResponse> getAllSoftwareEngineers() {
+    public SoftwareEngineerPageResponse getAllSoftwareEngineers(int limit, int offset) {
         long startedAt = System.nanoTime();
         log.debug("engineers.list.started");
-        List<SoftwareEngineerResponse> responses = repository.findAll().stream()
+        Pageable pageable = new OffsetLimitPageable(offset, limit);
+        Page<Integer> engineerIds = repository.findIds(pageable);
+        Map<Integer, SoftwareEngineer> engineersById = engineerIds.isEmpty()
+            ? Map.of()
+            : repository.findAllWithTechnologiesByIdIn(engineerIds.getContent()).stream()
+                .collect(Collectors.toMap(SoftwareEngineer::getId, Function.identity()));
+        List<SoftwareEngineerResponse> responses = engineerIds.getContent().stream()
+            .map(engineersById::get)
+            .filter(Objects::nonNull)
             .map(SoftwareEngineerMapper::toResponse)
             .toList();
-        log.debug("engineers.list.completed resultCount={} durationMs={}",
-            responses.size(), durationMs(startedAt));
-        return responses;
+        SoftwareEngineerPageResponse page = new SoftwareEngineerPageResponse(
+            responses,
+            limit,
+            offset,
+            engineerIds.getTotalElements(),
+            (long) offset + responses.size() < engineerIds.getTotalElements()
+        );
+        log.debug("engineers.list.completed resultCount={} totalCount={} limit={} offset={} durationMs={}",
+            responses.size(), page.total(), limit, offset, durationMs(startedAt));
+        return page;
     }
 
     @Transactional(readOnly = true)
