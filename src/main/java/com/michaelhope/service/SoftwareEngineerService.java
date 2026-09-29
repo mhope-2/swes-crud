@@ -2,6 +2,8 @@ package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
+import com.michaelhope.cache.CacheNames;
+import com.michaelhope.cache.EngineerResponseCache;
 import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.mapper.SoftwareEngineerMapper;
@@ -11,6 +13,7 @@ import com.michaelhope.repository.SoftwareEngineerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -25,6 +28,7 @@ public class SoftwareEngineerService {
     private final SoftwareEngineerRepository repository;
     private final SoftwareEngineerEventPublisher eventPublisher;
     private final TechnologyService technologyService;
+    private final EngineerResponseCache engineerResponseCache;
 
     @Transactional(readOnly = true)
     public List<SoftwareEngineerResponse> getAllSoftwareEngineers() {
@@ -39,6 +43,7 @@ public class SoftwareEngineerService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CacheNames.ENGINEER_BY_ID, key = "#id")
     public SoftwareEngineerResponse getSoftwareEngineerById(Integer id) {
         SoftwareEngineerResponse response = repository.findById(id)
             .map(SoftwareEngineerMapper::toResponse)
@@ -73,11 +78,13 @@ public class SoftwareEngineerService {
         engineer.setAggregateVersion(nextVersion);
         SoftwareEngineer saved = repository.save(engineer);
         eventPublisher.publish("software-engineer.updated", saved, nextVersion);
+        SoftwareEngineerResponse response = SoftwareEngineerMapper.toResponse(saved);
+        engineerResponseCache.putAfterCommit(id, response);
         log.info("engineer.updated aggregateId={} previousVersion={} aggregateVersion={}",
             saved.getId(), previousVersion, nextVersion);
         log.debug("engineer.updated.technology_count aggregateId={} technologyCount={}",
             saved.getId(), saved.getTechnologies().size());
-        return SoftwareEngineerMapper.toResponse(saved);
+        return response;
     }
 
     @Transactional
@@ -87,6 +94,7 @@ public class SoftwareEngineerService {
         int nextVersion = nextVersion(engineer);
         repository.deleteById(id);
         eventPublisher.publish("software-engineer.deleted", engineer, nextVersion);
+        engineerResponseCache.evictAfterCommit(id);
         log.info("engineer.deleted aggregateId={} aggregateVersion={}", id, nextVersion);
     }
 

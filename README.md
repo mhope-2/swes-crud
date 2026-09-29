@@ -114,6 +114,29 @@ production migration is introduced.
 
 Technology names are trimmed, normalized case-insensitively, deduplicated, and returned in alphabetical order. PostgreSQL stores reusable `technology` rows and a `software_engineer_technology` join table.
 
+## Engineer response cache
+
+`GET /api/v1/software-engineer/{id}` uses a bounded in-process Caffeine cache of
+immutable response DTOs. Updates refresh the entry after commit and deletes evict
+it after commit. The default limit is 500 engineers with a 10-minute expiry; both
+values are configurable in `application.properties`.
+
+Cache statistics are available at:
+
+```text
+GET /api/v1/cache/engineer-by-id/stats
+```
+
+With the application and its dependencies running, repeat the same read and view
+the hit/miss change with:
+
+```bash
+./scripts/load-test-engineer-cache.sh
+```
+
+The script accepts `BASE_URL`, `ENGINEER_ID`, `REQUESTS`, and `CONCURRENCY`
+environment variables.
+
 ## Running Tests
 
 ```bash
