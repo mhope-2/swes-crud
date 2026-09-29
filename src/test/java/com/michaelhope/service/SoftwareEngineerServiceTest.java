@@ -1,6 +1,7 @@
 package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
+import com.michaelhope.dto.SoftwareEngineerPageResponse;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.cache.EngineerResponseCache;
 import com.michaelhope.event.SoftwareEngineerEventPublisher;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,13 +54,16 @@ class SoftwareEngineerServiceTest {
 
     @Test
     void getAllSoftwareEngineers_returnsAllMapped() {
-        when(repository.findAll()).thenReturn(List.of(engineer));
+        when(repository.findIds(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(1), Pageable.ofSize(20), 1));
+        when(repository.findAllWithTechnologiesByIdIn(any())).thenReturn(List.of(engineer));
 
-        List<SoftwareEngineerResponse> result = service.getAllSoftwareEngineers();
+        SoftwareEngineerPageResponse result = service.getAllSoftwareEngineers(20, 0);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).name()).isEqualTo("Alice");
-        assertThat(result.get(0).technologies()).containsExactly("Java");
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).name()).isEqualTo("Alice");
+        assertThat(result.items().get(0).technologies()).containsExactly("Java");
+        assertThat(result.total()).isEqualTo(1);
+        assertThat(result.hasNext()).isFalse();
     }
 
     @Test

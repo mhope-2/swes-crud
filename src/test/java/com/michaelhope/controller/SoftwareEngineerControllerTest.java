@@ -3,6 +3,7 @@ package com.michaelhope.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michaelhope.service.EngineerAuditService;
 import com.michaelhope.dto.SoftwareEngineerRequest;
+import com.michaelhope.dto.SoftwareEngineerPageResponse;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.exception.GlobalExceptionHandler;
 import com.michaelhope.exception.ResourceNotFoundException;
@@ -42,15 +43,25 @@ class SoftwareEngineerControllerTest {
 
     @Test
     void getEngineers_returns200WithList() throws Exception {
-        when(service.getAllSoftwareEngineers()).thenReturn(
-            List.of(new SoftwareEngineerResponse(1, "Alice", List.of("Java")))
+        when(service.getAllSoftwareEngineers(20, 0)).thenReturn(
+            new SoftwareEngineerPageResponse(
+                List.of(new SoftwareEngineerResponse(1, "Alice", List.of("Java"))),
+                20,
+                0,
+                1,
+                false
+            )
         );
 
         mockMvc.perform(get("/api/v1/software-engineer"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].id").value(1))
-            .andExpect(jsonPath("$[0].name").value("Alice"))
-            .andExpect(jsonPath("$[0].technologies[0]").value("Java"));
+            .andExpect(jsonPath("$.items[0].id").value(1))
+            .andExpect(jsonPath("$.items[0].name").value("Alice"))
+            .andExpect(jsonPath("$.items[0].technologies[0]").value("Java"))
+            .andExpect(jsonPath("$.limit").value(20))
+            .andExpect(jsonPath("$.offset").value(0))
+            .andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.hasNext").value(false));
     }
 
     @Test

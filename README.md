@@ -86,7 +86,7 @@ context setup, and runtime diagnostics.
 
 | Method | Path                              | Description          |
 |--------|-----------------------------------|----------------------|
-| GET    | `/api/v1/software-engineer`       | Get all engineers    |
+| GET    | `/api/v1/software-engineer?limit=20&offset=0` | List engineers with pagination |
 | GET    | `/api/v1/software-engineer/{id}`  | Get engineer by ID   |
 | POST   | `/api/v1/software-engineer`       | Add a new engineer   |
 | PUT    | `/api/v1/software-engineer/{id}`  | Update an engineer   |
@@ -113,6 +113,10 @@ production migration is introduced.
 ```
 
 Technology names are trimmed, normalized case-insensitively, deduplicated, and returned in alphabetical order. PostgreSQL stores reusable `technology` rows and a `software_engineer_technology` join table.
+
+The engineer list endpoint uses limit/offset pagination. `limit` defaults to 20
+and is capped at 100; `offset` defaults to 0. The response includes `items`,
+`limit`, `offset`, `total`, and `hasNext`.
 
 ## Engineer response cache
 
