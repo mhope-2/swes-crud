@@ -2,6 +2,7 @@ package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
 import com.michaelhope.dto.SoftwareEngineerResponse;
+import com.michaelhope.cache.EngineerResponseCache;
 import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.model.SoftwareEngineer;
@@ -34,6 +35,9 @@ class SoftwareEngineerServiceTest {
 
     @Mock
     private TechnologyService technologyService;
+
+    @Mock
+    private EngineerResponseCache engineerResponseCache;
 
     @InjectMocks
     private SoftwareEngineerService service;
