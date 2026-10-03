@@ -98,10 +98,11 @@ by engineer ID. The audit consumer stores them in the `engineer_audit` table.
 History is eventually consistent with the CRUD response because Kafka
 processing happens asynchronously.
 
-The application uses Hibernate `update` for this learning project. On startup,
-`TechnologyBackfillRunner` migrates values from a legacy `tech_stack` column
-when present. The legacy column is intentionally retained until a versioned
-production migration is introduced.
+The application uses Hibernate `update` for this learning project. The
+normalized `technology` and `software_engineer_technology` tables are now the
+canonical storage model. Existing databases that still contain the retired
+`tech_stack` column require a one-time, versioned migration before that column
+is removed; the application no longer performs an automatic startup backfill.
 
 **Request body (POST / PUT):**
 
