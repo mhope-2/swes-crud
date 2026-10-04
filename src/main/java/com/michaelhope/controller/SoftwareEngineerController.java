@@ -2,6 +2,7 @@ package com.michaelhope.controller;
 
 import com.michaelhope.dto.EngineerAuditResponse;
 import com.michaelhope.dto.SoftwareEngineerRequest;
+import com.michaelhope.dto.SoftwareEngineerPageResponse;
 import com.michaelhope.dto.SoftwareEngineerResponse;
 import com.michaelhope.service.SoftwareEngineerService;
 import com.michaelhope.service.EngineerAuditService;
@@ -10,20 +11,28 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.annotation.Validated;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("api/v1/software-engineer")
+@Validated
 @RequiredArgsConstructor
 public class SoftwareEngineerController {
+
+    private static final int MAX_LIMIT = 100;
 
     private final SoftwareEngineerService service;
     private final EngineerAuditService auditService;
 
     @GetMapping
-    public ResponseEntity<List<SoftwareEngineerResponse>> getEngineers() {
-        return ResponseEntity.ok(service.getAllSoftwareEngineers());
+    public ResponseEntity<SoftwareEngineerPageResponse> getEngineers(
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_LIMIT) int limit,
+            @RequestParam(defaultValue = "0") @Min(0) int offset) {
+        return ResponseEntity.ok(service.getAllSoftwareEngineers(limit, offset));
     }
 
     @GetMapping("{id}")

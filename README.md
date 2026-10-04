@@ -86,7 +86,7 @@ context setup, and runtime diagnostics.
 
 | Method | Path                              | Description          |
 |--------|-----------------------------------|----------------------|
-| GET    | `/api/v1/software-engineer`       | Get all engineers    |
+| GET    | `/api/v1/software-engineer?limit=20&offset=0` | List engineers with pagination |
 | GET    | `/api/v1/software-engineer/{id}`  | Get engineer by ID   |
 | POST   | `/api/v1/software-engineer`       | Add a new engineer   |
 | PUT    | `/api/v1/software-engineer/{id}`  | Update an engineer   |
@@ -140,6 +140,33 @@ applied migration files must not be edited.
 
 No application startup backfill runner is used. Legacy technology data is
 migrated once by Flyway rather than reprocessed on every application startup.
+
+The engineer list endpoint uses limit/offset pagination. `limit` defaults to 20
+and is capped at 100; `offset` defaults to 0. The response includes `items`,
+`limit`, `offset`, `total`, and `hasNext`.
+
+## Engineer response cache
+
+`GET /api/v1/software-engineer/{id}` uses a bounded in-process Caffeine cache of
+immutable response DTOs. Updates refresh the entry after commit and deletes evict
+it after commit. The default limit is 500 engineers with a 10-minute expiry; both
+values are configurable in `application.properties`.
+
+Cache statistics are available at:
+
+```text
+GET /api/v1/cache/engineer-by-id/stats
+```
+
+With the application and its dependencies running, repeat the same read and view
+the hit/miss change with:
+
+```bash
+./scripts/load-test-engineer-cache.sh
+```
+
+The script accepts `BASE_URL`, `ENGINEER_ID`, `REQUESTS`, and `CONCURRENCY`
+environment variables.
 
 ## Running Tests
 

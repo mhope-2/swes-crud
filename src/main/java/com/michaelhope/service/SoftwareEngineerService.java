@@ -1,7 +1,10 @@
 package com.michaelhope.service;
 
 import com.michaelhope.dto.SoftwareEngineerRequest;
+import com.michaelhope.dto.SoftwareEngineerPageResponse;
 import com.michaelhope.dto.SoftwareEngineerResponse;
+import com.michaelhope.cache.CacheNames;
+import com.michaelhope.cache.EngineerResponseCache;
 import com.michaelhope.event.SoftwareEngineerEventPublisher;
 import com.michaelhope.exception.ResourceNotFoundException;
 import com.michaelhope.mapper.SoftwareEngineerMapper;
@@ -11,10 +14,19 @@ import com.michaelhope.repository.SoftwareEngineerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import com.michaelhope.pagination.OffsetLimitPageable;
 
 
 @Service
@@ -25,20 +37,37 @@ public class SoftwareEngineerService {
     private final SoftwareEngineerRepository repository;
     private final SoftwareEngineerEventPublisher eventPublisher;
     private final TechnologyService technologyService;
+    private final EngineerResponseCache engineerResponseCache;
 
     @Transactional(readOnly = true)
-    public List<SoftwareEngineerResponse> getAllSoftwareEngineers() {
+    public SoftwareEngineerPageResponse getAllSoftwareEngineers(int limit, int offset) {
         long startedAt = System.nanoTime();
         log.debug("engineers.list.started");
-        List<SoftwareEngineerResponse> responses = repository.findAll().stream()
+        Pageable pageable = new OffsetLimitPageable(offset, limit);
+        Page<Integer> engineerIds = repository.findIds(pageable);
+        Map<Integer, SoftwareEngineer> engineersById = engineerIds.isEmpty()
+            ? Map.of()
+            : repository.findAllWithTechnologiesByIdIn(engineerIds.getContent()).stream()
+                .collect(Collectors.toMap(SoftwareEngineer::getId, Function.identity()));
+        List<SoftwareEngineerResponse> responses = engineerIds.getContent().stream()
+            .map(engineersById::get)
+            .filter(Objects::nonNull)
             .map(SoftwareEngineerMapper::toResponse)
             .toList();
-        log.debug("engineers.list.completed resultCount={} durationMs={}",
-            responses.size(), durationMs(startedAt));
-        return responses;
+        SoftwareEngineerPageResponse page = new SoftwareEngineerPageResponse(
+            responses,
+            limit,
+            offset,
+            engineerIds.getTotalElements(),
+            (long) offset + responses.size() < engineerIds.getTotalElements()
+        );
+        log.debug("engineers.list.completed resultCount={} totalCount={} limit={} offset={} durationMs={}",
+            responses.size(), page.total(), limit, offset, durationMs(startedAt));
+        return page;
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = CacheNames.ENGINEER_BY_ID, key = "#id")
     public SoftwareEngineerResponse getSoftwareEngineerById(Integer id) {
         SoftwareEngineerResponse response = repository.findById(id)
             .map(SoftwareEngineerMapper::toResponse)
@@ -73,11 +102,13 @@ public class SoftwareEngineerService {
         engineer.setAggregateVersion(nextVersion);
         SoftwareEngineer saved = repository.save(engineer);
         eventPublisher.publish("software-engineer.updated", saved, nextVersion);
+        SoftwareEngineerResponse response = SoftwareEngineerMapper.toResponse(saved);
+        engineerResponseCache.putAfterCommit(id, response);
         log.info("engineer.updated aggregateId={} previousVersion={} aggregateVersion={}",
             saved.getId(), previousVersion, nextVersion);
         log.debug("engineer.updated.technology_count aggregateId={} technologyCount={}",
             saved.getId(), saved.getTechnologies().size());
-        return SoftwareEngineerMapper.toResponse(saved);
+        return response;
     }
 
     @Transactional
@@ -87,6 +118,7 @@ public class SoftwareEngineerService {
         int nextVersion = nextVersion(engineer);
         repository.deleteById(id);
         eventPublisher.publish("software-engineer.deleted", engineer, nextVersion);
+        engineerResponseCache.evictAfterCommit(id);
         log.info("engineer.deleted aggregateId={} aggregateVersion={}", id, nextVersion);
     }
 

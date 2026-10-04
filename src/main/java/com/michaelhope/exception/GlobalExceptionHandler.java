@@ -1,10 +1,12 @@
 package com.michaelhope.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -28,12 +30,18 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiError handleValidation(MethodArgumentNotValidException ex) {
         String fields = ex.getBindingResult().getFieldErrors().stream()
-            .map(error -> error.getField())
+            .map(FieldError::getField)
             .distinct()
             .sorted()
             .collect(Collectors.joining(","));
         log.warn("request.validation_failed fields={}", fields);
         return error(HttpStatus.BAD_REQUEST, "Request validation failed");
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiError handleConstraintViolation(ConstraintViolationException ex) {
+        return error(HttpStatus.BAD_REQUEST, "Request parameters are invalid");
     }
 
     @ExceptionHandler(InvalidTechnologyException.class)
