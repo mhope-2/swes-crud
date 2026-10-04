@@ -98,10 +98,8 @@ by engineer ID. The audit consumer stores them in the `engineer_audit` table.
 History is eventually consistent with the CRUD response because Kafka
 processing happens asynchronously.
 
-The application uses Hibernate `update` for this learning project. On startup,
-`TechnologyBackfillRunner` migrates values from a legacy `tech_stack` column
-when present. The legacy column is intentionally retained until a versioned
-production migration is introduced.
+The database schema is managed by the Flyway migrations described below. The
+normalized technology tables are the canonical representation.
 
 **Request body (POST / PUT):**
 
@@ -114,10 +112,48 @@ production migration is introduced.
 
 Technology names are trimmed, normalized case-insensitively, deduplicated, and returned in alphabetical order. PostgreSQL stores reusable `technology` rows and a `software_engineer_technology` join table.
 
+## Database migrations
+
+Flyway owns database schema changes. Versioned SQL migrations live in
+`src/main/resources/db/migration` and are applied automatically when the
+application starts. Hibernate is configured with `ddl-auto=validate`, so it
+checks the Flyway-managed schema without changing it.
+
+The current migration history is:
+
+- `V1__create_base_schema.sql` creates or repairs the pre-normalization
+  engineer and audit schema.
+- `V2__normalize_technologies.sql` creates normalized technology tables and
+  migrates legacy comma-separated `tech_stack` values.
+- `V3__remove_legacy_tech_stack.sql` removes the legacy column after the
+  normalized data has been written.
+
+Existing non-empty development databases can be baselined at Flyway version `0`
+and then run through the idempotent migration chain, but this is opt-in. The
+Compose app service enables it explicitly with
+`SPRING_FLYWAY_BASELINE_ON_MIGRATE=true`; for a local Maven run against a
+pre-Flyway database, use the same environment variable after verifying the
+schema and taking a backup. Keep it disabled for production unless the target
+database has been reviewed and an explicit baseline is part of the rollout.
+Flyway's `flyway_schema_history` table records applied versions and checksums;
+applied migration files must not be edited.
+
+No application startup backfill runner is used. Legacy technology data is
+migrated once by Flyway rather than reprocessed on every application startup.
+
 ## Running Tests
 
 ```bash
 ./mvnw test -Dtest="SoftwareEngineerMapperTest,SoftwareEngineerServiceTest,SoftwareEngineerControllerTest"
 ```
 
-> `ApplicationTests` (context load) requires the Docker database to be running.
+The database integration tests use PostgreSQL Testcontainers and require a
+Docker-compatible runtime:
+
+```bash
+./mvnw -Dtest="FlywayMigrationTest,SoftwareEngineerRepositoryTest,ApplicationTests" test
+```
+
+These tests do not use H2. `ApplicationTests` loads the full Spring context
+against an isolated PostgreSQL container, while `SoftwareEngineerRepositoryTest`
+is a focused `@DataJpaTest`.
