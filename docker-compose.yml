@@ -9,6 +9,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
     depends_on:
       - db
       - kafka
@@ -18,7 +19,7 @@ services:
 
   db:
     container_name: postgres-swes_crud
-    image: postgres:latest
+    image: postgres:16
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

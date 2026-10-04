@@ -1,4 +1,4 @@
-.PHONY: up up-build down logs db run test build clean
+.PHONY: up up-build down logs db run test test-integration build clean
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
@@ -24,6 +24,9 @@ run:
 
 test:
 	./mvnw test
+
+test-integration:
+	./mvnw -Dtest="FlywayMigrationTest,SoftwareEngineerRepositoryTest,ApplicationTests" test
 
 build:
 	./mvnw package -DskipTests
