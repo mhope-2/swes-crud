@@ -14,37 +14,42 @@ A simple CRUD REST API built with Spring Boot for personal learning. Manages a l
 
 ## Project Structure
 
+The package layout follows a ports-and-adapters boundary:
+
 ```
 src/main/java/com/michaelhope/
-├── controller/    REST endpoints
-├── service/       Business logic
-├── repository/    Database access (JPA)
-├── model/         JPA entities, including Technology
-├── dto/           Request / Response records
-├── mapper/        Entity ↔ DTO conversion
-├── event/         Versioned Kafka event contracts and publisher
-├── consumer/      Kafka consumers
-└── exception/     ResourceNotFoundException + GlobalExceptionHandler
+├── api/             HTTP controllers, request/response records, error handling
+├── domain/          entities and domain exceptions; no Spring imports
+├── application/    use-case services, mapping, pagination, outbound ports
+└── infrastructure/ JPA/Kafka/Caffeine adapters, configuration, web plumbing
 ```
+
+The application layer owns orchestration and depends on interfaces in
+`application/port/out`. Infrastructure supplies those interfaces. This keeps
+HTTP, persistence, messaging, and caching replaceable at the application
+boundary without pretending that JPA entities are API DTOs.
 
 ## Running the App
 
-**1. Start PostgreSQL and Kafka**
+For a reviewer, one command starts the app and its dependencies:
+
+```bash
+docker compose up --build
+```
+
+Compose waits for healthy PostgreSQL and Kafka before starting the application.
+The API is available at `http://localhost:8080`. Stop it with `Ctrl-C`, or use
+`docker compose down` from another terminal. The PostgreSQL data volume is
+retained by default; use `docker compose down -v` when you intentionally want
+to remove local data.
+
+For local Maven development, start only the dependencies and run the app on the
+host:
 
 ```bash
 docker compose up -d db kafka
-```
-
-This starts the infrastructure dependencies only. It avoids starting the
-containerized `app` service when running the application locally with Maven.
-
-**2. Run the application**
-
-```bash
 ./mvnw spring-boot:run
 ```
-
-The API is available at `http://localhost:8080`.
 
 ### Run with virtual threads
 
@@ -67,8 +72,7 @@ engine is ready, then select its Docker context:
 ```bash
 docker context use dory
 dory doctor --active
-docker compose up -d db kafka
-./mvnw spring-boot:run -Dspring-boot.run.profiles=virtual
+docker compose up --build
 ```
 
 Dory publishes the PostgreSQL and Kafka ports to localhost, matching the
@@ -170,17 +174,49 @@ environment variables.
 
 ## Running Tests
 
+Run the complete suite with:
+
 ```bash
-./mvnw test -Dtest="SoftwareEngineerMapperTest,SoftwareEngineerServiceTest,SoftwareEngineerControllerTest"
+./mvnw test
 ```
 
-The database integration tests use PostgreSQL Testcontainers and require a
-Docker-compatible runtime:
+The suite is deliberately split by boundary:
+
+- `domain/` tests are plain JUnit unit tests.
+- `api/` tests use `@WebMvcTest` and mock application services.
+- `infrastructure/persistence/` tests use PostgreSQL Testcontainers, not H2;
+  `SoftwareEngineerRepositoryTest` is a focused `@DataJpaTest`.
+- `infrastructure/persistence/FlywayMigrationTest` verifies the migration chain.
+- `integration/ApplicationTests` loads the full Spring context against an
+  isolated PostgreSQL Testcontainer.
+
+Run the fast, non-database tests with:
+
+```bash
+./mvnw -Dtest="TechnologyTest,SoftwareEngineerMapperTest,TechnologyServiceTest,SoftwareEngineerServiceTest,SoftwareEngineerControllerTest" test
+```
+
+The integration tests require a Docker-compatible runtime:
 
 ```bash
 ./mvnw -Dtest="FlywayMigrationTest,SoftwareEngineerRepositoryTest,ApplicationTests" test
 ```
 
-These tests do not use H2. `ApplicationTests` loads the full Spring context
-against an isolated PostgreSQL container, while `SoftwareEngineerRepositoryTest`
-is a focused `@DataJpaTest`.
+## Design Decisions and Trade-offs
+
+- PostgreSQL is the only supported runtime database. Flyway owns schema changes
+  and Hibernate is validation-only, which makes deployments explicit but adds
+  migration maintenance.
+- Limit/offset pagination is simple and matches the existing API, but deep
+  offsets become less efficient than cursor pagination on very large tables.
+- The engineer-by-ID cache is bounded Caffeine in each application instance.
+  It reduces repeated reads, but it is not a distributed cache; horizontal
+  deployments require cache invalidation or a shared cache strategy.
+- Kafka audit history is asynchronous. CRUD requests stay responsive, but the
+  history endpoint is eventually consistent and depends on broker availability.
+- JPA entities remain persistence-aware because this is a small service and the
+  schema mapping is straightforward. They are never returned directly from
+  controllers; API response records are mapped at the application boundary.
+
+See [DECISIONS.md](DECISIONS.md) for the numbered rationale behind these and
+other choices.
