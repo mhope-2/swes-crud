@@ -1,0 +1,158 @@
+package com.michaelhope.api.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.michaelhope.api.exception.GlobalExceptionHandler;
+import com.michaelhope.api.request.SoftwareEngineerRequest;
+import com.michaelhope.api.response.SoftwareEngineerPageResponse;
+import com.michaelhope.api.response.SoftwareEngineerResponse;
+import com.michaelhope.application.service.EngineerAuditService;
+import com.michaelhope.application.service.SoftwareEngineerService;
+import com.michaelhope.domain.exception.ResourceNotFoundException;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(SoftwareEngineerController.class)
+@Import(GlobalExceptionHandler.class)
+class SoftwareEngineerControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private SoftwareEngineerService service;
+
+    @MockitoBean
+    private EngineerAuditService auditService;
+
+    @Test
+    void getEngineers_returns200WithList() throws Exception {
+        when(service.getAllSoftwareEngineers(20, 0)).thenReturn(
+            new SoftwareEngineerPageResponse(
+                List.of(new SoftwareEngineerResponse(1, "Alice", List.of("Java"))),
+                20,
+                0,
+                1,
+                false
+            )
+        );
+
+        mockMvc.perform(get("/api/v1/software-engineer"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].id").value(1))
+            .andExpect(jsonPath("$.items[0].name").value("Alice"))
+            .andExpect(jsonPath("$.items[0].technologies[0]").value("Java"))
+            .andExpect(jsonPath("$.limit").value(20))
+            .andExpect(jsonPath("$.offset").value(0))
+            .andExpect(jsonPath("$.total").value(1))
+            .andExpect(jsonPath("$.hasNext").value(false));
+    }
+
+    @Test
+    void getEngineerById_returns200WhenFound() throws Exception {
+        when(service.getSoftwareEngineerById(1)).thenReturn(
+            new SoftwareEngineerResponse(1, "Alice", List.of("Java"))
+        );
+
+        mockMvc.perform(get("/api/v1/software-engineer/1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Alice"));
+    }
+
+    @Test
+    void getEngineerById_returns404WhenNotFound() throws Exception {
+        when(service.getSoftwareEngineerById(99))
+            .thenThrow(new ResourceNotFoundException("Software engineer with id 99 not found"));
+
+        mockMvc.perform(get("/api/v1/software-engineer/99"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getEngineerHistory_returns200WithEvents() throws Exception {
+        when(auditService.getHistory(1)).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/software-engineer/1/history"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("[]"));
+    }
+
+    @Test
+    void addEngineer_returns201WithBody() throws Exception {
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Bob", List.of("Kotlin"));
+        when(service.addSoftwareEngineer(any(SoftwareEngineerRequest.class)))
+            .thenReturn(new SoftwareEngineerResponse(2, "Bob", List.of("Kotlin")));
+
+        mockMvc.perform(post("/api/v1/software-engineer")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").value(2))
+            .andExpect(jsonPath("$.name").value("Bob"));
+    }
+
+    @Test
+    void addEngineer_returns400WhenNameBlank() throws Exception {
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("", List.of("Kotlin"));
+
+        mockMvc.perform(post("/api/v1/software-engineer")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateEngineer_returns200WithUpdatedBody() throws Exception {
+        SoftwareEngineerRequest request = new SoftwareEngineerRequest("Alice Updated", List.of("Go"));
+        when(service.updateSoftwareEngineer(eq(1), any(SoftwareEngineerRequest.class)))
+            .thenReturn(new SoftwareEngineerResponse(1, "Alice Updated", List.of("Go")));
+
+        mockMvc.perform(put("/api/v1/software-engineer/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Alice Updated"));
+    }
+
+    @Test
+    void updateEngineer_returns404WhenNotFound() throws Exception {
+        when(service.updateSoftwareEngineer(eq(99), any(SoftwareEngineerRequest.class)))
+            .thenThrow(new ResourceNotFoundException("Software engineer with id 99 not found"));
+
+        mockMvc.perform(put("/api/v1/software-engineer/99")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new SoftwareEngineerRequest("X", List.of("Y")))))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteEngineer_returns204WhenDeleted() throws Exception {
+        mockMvc.perform(delete("/api/v1/software-engineer/1"))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteEngineer_returns404WhenNotFound() throws Exception {
+        doThrow(new ResourceNotFoundException("Software engineer with id 99 not found"))
+            .when(service).deleteSoftwareEngineer(99);
+
+        mockMvc.perform(delete("/api/v1/software-engineer/99"))
+            .andExpect(status().isNotFound());
+    }
+}
